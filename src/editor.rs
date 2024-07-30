@@ -1,10 +1,9 @@
-use std::io::Write;
-
 use crossterm::cursor::MoveTo;
-use crossterm::event::{read, Event::Key, KeyCode::Char, KeyEvent};
-use crossterm::queue;
-use crossterm::style::{Color, PrintStyledContent, Stylize};
+use crossterm::event::KeyModifiers;
+use crossterm::event::{read, Event, Event::Key, KeyCode::Char, KeyEvent};
+use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType};
+use std::io::{stdout, Error};
 
 pub struct Editor {
     should_exit: bool,
@@ -15,59 +14,67 @@ impl Editor {
         Self { should_exit: false }
     }
 
-    pub fn draw_rows(&self) -> std::io::Result<()> {
-        match crossterm::terminal::size() {
-            Ok((col, _)) => {
-                let tilde = "~ ".with(Color::Green);
-                for i in 0..col {
-                    queue!(std::io::stdout(), MoveTo(0, i), PrintStyledContent(tilde))?;
-                }
-                queue!(std::io::stdout(), MoveTo(2, 0))?;
-                std::io::stdout().flush()?;
-            }
-            Err(error) => {
-                println!("error: {error:?}");
-            }
-        }
+    pub fn run(&mut self) {
+        Self::initialize().unwrap();
+        let editor_res = self.repl();
+        Self::terminate().unwrap();
+        editor_res.unwrap();
+    }
+
+    fn initialize() -> Result<(), Error> {
+        enable_raw_mode()?;
+        Self::clear_screen()
+    }
+
+    fn terminate() -> Result<(), Error> {
+        disable_raw_mode()?;
         Ok(())
     }
 
-    pub fn run(&mut self) {
-        if let Err(err) = self.repl() {
-            panic!("{err:#?}");
-        }
-        print!("Goodbye! :D");
+    fn clear_screen() -> Result<(), Error> {
+        execute!(stdout(), Clear(ClearType::All), MoveTo(0, 0))
     }
 
-    pub fn repl(&mut self) -> Result<(), std::io::Error> {
-        enable_raw_mode()?;
-        print!("\x1b[2J");
-        if let Err(error) = self.draw_rows() {
-            panic!("error: {error:?}");
-        }
+    fn repl(&mut self) -> Result<(), Error> {
         loop {
-            if let Key(KeyEvent {
-                code,
-                modifiers,
-                kind,
-                state,
-            }) = read()?
-            {
-                print!(
-                    "Code: {code:?}, Modifiers: {modifiers:?}, Kind: {kind:?}, State: {state:?}\n"
-                );
+            let event = read()?;
+            self.handle_event(event);
 
-                match code {
-                    Char('q') => self.should_exit = true,
-                    _ => (),
-                }
-            }
+            self.refresh_screen()?;
 
             if self.should_exit {
                 break;
             }
         }
-        disable_raw_mode()?;
         Ok(())
+    }
+
+    fn refresh_screen(&mut self) -> Result<(), Error> {
+        if self.should_exit {
+            Self::clear_screen()?;
+            println!("Goodbye! :D");
+        }
+
+        Ok(())
+    }
+
+    fn handle_event(&mut self, event: Event) {
+        // If CTRL + q is pressed, then terminate
+        if let Key(KeyEvent {
+            code: Char('q'),
+            modifiers: KeyModifiers::CONTROL,
+            ..
+        }) = event
+        {
+            self.should_exit = true;
+            return;
+        }
+
+        if let Key(KeyEvent {
+            code: Char(key), ..
+        }) = event
+        {
+            println!("Pressed key: {key}");
+        }
     }
 }
