@@ -1,9 +1,7 @@
-use crossterm::cursor::MoveTo;
-use crossterm::event::KeyModifiers;
-use crossterm::event::{read, Event, Event::Key, KeyCode::Char, KeyEvent};
-use crossterm::execute;
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType};
-use std::io::{stdout, Error};
+use crossterm::event::{read, Event, Event::Key, KeyCode::Char, KeyEvent, KeyModifiers};
+use std::io::{stdout, Error, Write};
+use terminal::Terminal;
+mod terminal;
 
 pub struct Editor {
     should_exit: bool,
@@ -15,46 +13,43 @@ impl Editor {
     }
 
     pub fn run(&mut self) {
-        Self::initialize().unwrap();
+        Terminal::initialize().unwrap();
         let editor_res = self.repl();
-        Self::terminate().unwrap();
+        Terminal::terminate().unwrap();
         editor_res.unwrap();
-    }
-
-    fn initialize() -> Result<(), Error> {
-        enable_raw_mode()?;
-        Self::clear_screen()
-    }
-
-    fn terminate() -> Result<(), Error> {
-        disable_raw_mode()?;
-        Ok(())
-    }
-
-    fn clear_screen() -> Result<(), Error> {
-        execute!(stdout(), Clear(ClearType::All), MoveTo(0, 0))
     }
 
     fn repl(&mut self) -> Result<(), Error> {
         loop {
-            let event = read()?;
-            self.handle_event(event);
-
+            Self::draw_row_borders()?;
             self.refresh_screen()?;
-
             if self.should_exit {
                 break;
             }
+
+            let event = read()?;
+            self.handle_event(event);
         }
         Ok(())
     }
 
     fn refresh_screen(&mut self) -> Result<(), Error> {
         if self.should_exit {
-            Self::clear_screen()?;
+            Terminal::clear_screen()?;
             println!("Goodbye! :D");
+        } else {
+            Self::draw_row_borders()?;
         }
 
+        Ok(())
+    }
+
+    fn draw_row_borders() -> Result<(), Error> {
+        let (_width, height) = Terminal::get_size()?;
+        for i in 0..=height {
+            Terminal::move_cursor_to(0, i)?;
+            stdout().write(b"~ ")?;
+        }
         Ok(())
     }
 
