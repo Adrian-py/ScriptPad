@@ -4,8 +4,10 @@ use crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
 };
 use std::io::Error;
-use terminal::{CursorPosition, Terminal, TerminalSize};
+use terminal::{CursorPosition, Terminal};
+use view::View;
 mod terminal;
+mod view;
 
 pub struct Editor {
     cursor_position: CursorPosition,
@@ -35,7 +37,7 @@ impl Editor {
             }
 
             let event = read()?;
-            self.handle_event(event)?;
+            self.handle_event(&event)?;
         }
 
         Ok(())
@@ -48,8 +50,7 @@ impl Editor {
             Terminal::clear_screen()?;
             Terminal::print("Goodbye! :D")?;
         } else {
-            Self::draw_row_borders()?;
-            Self::draw_greet_message("ScriptPad Editor -- version 1")?;
+            View::render()?;
             Terminal::move_cursor_to(self.cursor_position)?;
         }
         Terminal::show_cursor()?;
@@ -58,31 +59,7 @@ impl Editor {
         Ok(())
     }
 
-    fn draw_greet_message(message: &str) -> Result<(), Error> {
-        let terminal_size: TerminalSize = Terminal::size()?;
-
-        let msg_col_position: usize = terminal_size.height / 3;
-        let msg_row_position: usize = (terminal_size.width - message.len()) / 2;
-        Terminal::move_cursor_to(CursorPosition {
-            x: msg_row_position,
-            y: msg_col_position,
-        })?;
-        Terminal::print(message)?;
-
-        Ok(())
-    }
-
-    fn draw_row_borders() -> Result<(), Error> {
-        let terminal_size: TerminalSize = Terminal::size()?;
-        for curr_row in 0..terminal_size.height {
-            Terminal::move_cursor_to(CursorPosition { x: 0, y: curr_row })?;
-            Terminal::print("~ ")?;
-        }
-
-        Ok(())
-    }
-
-    fn handle_event(&mut self, event: Event) -> Result<(), Error> {
+    fn handle_event(&mut self, event: &Event) -> Result<(), Error> {
         // If CTRL + q is pressed, then terminate
         if let Key(KeyEvent {
             code: KeyCode::Char('q'),
@@ -95,9 +72,9 @@ impl Editor {
         }
 
         if let Key(KeyEvent { code, kind, .. }) = event {
-            if kind == KeyEventKind::Press {
+            if *kind == KeyEventKind::Press {
                 match code {
-                    KeyCode::Char(c) => Terminal::print(c)?,
+                    KeyCode::Char(c) => Terminal::print(&c.to_string())?,
                     KeyCode::Left => {
                         self.cursor_position.x = self.cursor_position.x.max(3) - 1;
                         Terminal::move_cursor_to(self.cursor_position)?;

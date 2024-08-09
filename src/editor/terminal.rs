@@ -1,4 +1,3 @@
-use core::fmt::Display;
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
     queue,
@@ -47,11 +46,6 @@ impl Terminal {
         Ok(())
     }
 
-    // pub fn clear_line() -> Result<(), Error> {
-    //     Self::queue_command(Clear(ClearType::CurrentLine))?;
-    //     Ok(())
-    // }
-
     pub fn execute() -> Result<(), Error> {
         stdout().flush()?;
         Ok(())
@@ -59,18 +53,20 @@ impl Terminal {
 
     pub fn size() -> Result<TerminalSize, Error> {
         let (width, height) = crossterm::terminal::size()?;
+        #[allow(clippy::as_conversions)]
         Ok(TerminalSize {
             width: width as usize,
             height: height as usize,
         })
     }
 
-    pub fn print<T: Display>(str: T) -> Result<(), Error> {
+    pub fn print(str: &str) -> Result<(), Error> {
         Self::queue_command(Print(str))?;
         Ok(())
     }
 
     pub fn move_cursor_to(pos: CursorPosition) -> Result<(), Error> {
+        #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
         Self::queue_command(MoveTo(pos.x as u16, pos.y as u16))?;
         Ok(())
     }
