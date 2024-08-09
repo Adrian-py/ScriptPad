@@ -12,6 +12,7 @@ mod view;
 pub struct Editor {
     cursor_position: CursorPosition,
     should_exit: bool,
+    view: View,
 }
 
 impl Editor {
@@ -19,6 +20,7 @@ impl Editor {
         Self {
             cursor_position: CursorPosition { x: 2, y: 0 },
             should_exit: false,
+            view: View::default(),
         }
     }
 
@@ -50,7 +52,7 @@ impl Editor {
             Terminal::clear_screen()?;
             Terminal::print("Goodbye! :D")?;
         } else {
-            View::render()?;
+            self.view.render()?;
             Terminal::move_cursor_to(self.cursor_position)?;
         }
         Terminal::show_cursor()?;
