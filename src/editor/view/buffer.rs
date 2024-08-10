@@ -4,8 +4,18 @@ pub struct Buffer {
 
 impl Default for Buffer {
     fn default() -> Self {
-        Self {
-            lines: vec![String::from("Hello World!")],
+        Self { lines: Vec::new() }
+    }
+}
+
+impl Buffer {
+    pub fn is_empty(&self) -> bool {
+        self.lines.len() == 0
+    }
+
+    pub fn add_lines(&mut self, full_text: &str) {
+        for line in full_text.split("\r\n") {
+            self.lines.push(line.to_string());
         }
     }
 }

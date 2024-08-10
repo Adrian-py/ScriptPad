@@ -3,9 +3,10 @@ use crossterm::event::{
     Event::{self, Key},
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
 };
-use std::io::Error;
+use std::{env, io::Error};
 use terminal::{CursorPosition, Terminal};
 use view::View;
+
 mod terminal;
 mod view;
 
@@ -26,9 +27,19 @@ impl Editor {
 
     pub fn run(&mut self) {
         Terminal::initialize().unwrap();
+        self.handle_args();
+
         let editor_res = self.repl();
         Terminal::terminate().unwrap();
         editor_res.unwrap();
+    }
+
+    pub fn handle_args(&mut self) {
+        let args = env::args().collect::<Vec<String>>();
+
+        if let Some(file_path) = args.get(1) {
+            self.view.load(file_path);
+        }
     }
 
     fn repl(&mut self) -> Result<(), Error> {

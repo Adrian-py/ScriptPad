@@ -13,19 +13,53 @@ pub struct View {
 }
 
 impl View {
+    pub fn load(&mut self, file_path: &str) {
+        if let Ok(file_string) = std::fs::read_to_string(file_path) {
+            self.buffer.add_lines(&file_string);
+        }
+    }
+
     pub fn render(&self) -> Result<(), Error> {
-        self.draw_rows()?;
-        self.draw_greet_message()?;
+        if self.buffer.is_empty() {
+            self.render_welcome()?;
+        } else {
+            self.render_buffer()?;
+        }
+
         Ok(())
     }
 
-    fn draw_rows(&self) -> Result<(), Error> {
+    fn render_welcome(&self) -> Result<(), Error> {
         let terminal_size: TerminalSize = Terminal::size()?;
         for curr_row in 0..terminal_size.height {
-            Terminal::move_cursor_to(CursorPosition { x: 0, y: curr_row })?;
-            Terminal::print("~ ")?;
-            if curr_row < self.buffer.lines.len() {
-                Terminal::print(&self.buffer.lines[curr_row])?;
+            Terminal::clear_line()?;
+            #[allow(clippy::integer_division)]
+            if curr_row == terminal_size.height / 3 {
+                self.draw_greet_message()?;
+                continue;
+            }
+
+            let mut line_contents = String::from("~ ");
+            if curr_row.saturating_add(1) < terminal_size.height {
+                line_contents.push_str("\r\n");
+            }
+            Terminal::print(&line_contents)?;
+        }
+
+        Ok(())
+    }
+
+    fn render_buffer(&self) -> Result<(), Error> {
+        let terminal_size: TerminalSize = Terminal::size()?;
+        for curr_row in 0..terminal_size.height {
+            Terminal::clear_line()?;
+            if let Some(curr_line) = self.buffer.lines.get(curr_row) {
+                Terminal::print(curr_line)?;
+            } else {
+                Terminal::print("~")?;
+            }
+            if curr_row < terminal_size.height.saturating_sub(1) {
+                Terminal::print("\r\n")?;
             }
         }
 
@@ -34,17 +68,11 @@ impl View {
 
     fn draw_greet_message(&self) -> Result<(), Error> {
         let terminal_size: TerminalSize = Terminal::size()?;
-        let message: &str = &format!("{NAME} editor -- version {VERSION}");
 
-        #[allow(clippy::integer_division)]
-        let msg_col_position: usize = terminal_size.height / 3;
-        let msg_row_position: usize = (terminal_size.width - message.len()) / 2;
-
-        Terminal::move_cursor_to(CursorPosition {
-            x: msg_row_position,
-            y: msg_col_position,
-        })?;
-        Terminal::print(message)?;
+        let mut message: String = format!("{NAME} editor -- version {VERSION}");
+        let spaces: String = " ".repeat((terminal_size.width - message.len()) / 2 - 1);
+        message = format!("~{spaces}{message}\r\n");
+        Terminal::print(&message)?;
 
         Ok(())
     }
