@@ -1,10 +1,10 @@
 use crossterm::event::{
     read,
-    Event::{self, Key},
+    Event::{self},
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
 };
 use std::{env, io::Error};
-use terminal::{CursorPosition, Terminal};
+use terminal::{CursorPosition, Size, Terminal};
 use view::View;
 
 mod terminal;
@@ -50,7 +50,7 @@ impl Editor {
             }
 
             let event = read()?;
-            self.handle_event(&event)?;
+            self.handle_event(event)?;
         }
 
         Ok(())
@@ -72,59 +72,95 @@ impl Editor {
         Ok(())
     }
 
-    fn handle_event(&mut self, event: &Event) -> Result<(), Error> {
-        // If CTRL + q is pressed, then terminate
-        if let Key(KeyEvent {
-            code: KeyCode::Char('q'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
-        }) = event
-        {
-            self.should_exit = true;
-            return Ok(());
+    #[allow(clippy::needless_pass_by_value)]
+    fn handle_event(&mut self, event: Event) -> Result<(), Error> {
+        match event {
+            Event::Key(KeyEvent {
+                code,
+                kind: KeyEventKind::Press,
+                modifiers,
+                ..
+            }) => match (code, modifiers) {
+                (KeyCode::Char('q'), KeyModifiers::CONTROL) => {
+                    self.should_exit = true;
+                }
+                (KeyCode::Char(c), _) => Terminal::print(&c.to_string())?,
+                (
+                    KeyCode::Left
+                    | KeyCode::Right
+                    | KeyCode::Up
+                    | KeyCode::Down
+                    | KeyCode::PageDown
+                    | KeyCode::PageUp
+                    | KeyCode::Home
+                    | KeyCode::End,
+                    _,
+                ) => {
+                    self.move_caret(code)?;
+                }
+                _ => {}
+            },
+            Event::Resize(w, h) => {
+                // Cast u16 to usize, and ignore clippy warnings
+                #[allow(clippy::as_conversions)]
+                let w_usize = w as usize;
+                #[allow(clippy::as_conversions)]
+                let h_usize = h as usize;
+
+                self.view.window_resize(Size {
+                    width: w_usize,
+                    height: h_usize,
+                });
+            }
+            _ => {}
         }
 
-        if let Key(KeyEvent { code, kind, .. }) = event {
-            if *kind == KeyEventKind::Press {
-                match code {
-                    KeyCode::Char(c) => Terminal::print(&c.to_string())?,
-                    KeyCode::Left => {
-                        self.cursor_position.x = self.cursor_position.x.max(3) - 1;
-                        Terminal::move_cursor_to(self.cursor_position)?;
-                    }
-                    KeyCode::Right => {
-                        self.cursor_position.x =
-                            self.cursor_position.x.min(Terminal::size()?.width - 2) + 1;
-                        Terminal::move_cursor_to(self.cursor_position)?;
-                    }
-                    KeyCode::Down => {
-                        self.cursor_position.y =
-                            self.cursor_position.y.min(Terminal::size()?.height) + 1;
-                        Terminal::move_cursor_to(self.cursor_position)?;
-                    }
-                    KeyCode::Up => {
-                        self.cursor_position.y = self.cursor_position.y.max(1) - 1;
-                        Terminal::move_cursor_to(self.cursor_position)?;
-                    }
-                    KeyCode::PageDown => {
-                        self.cursor_position.y = Terminal::size()?.height;
-                        Terminal::move_cursor_to(self.cursor_position)?;
-                    }
-                    KeyCode::PageUp => {
-                        self.cursor_position.y = 0;
-                        Terminal::move_cursor_to(self.cursor_position)?;
-                    }
-                    KeyCode::Home => {
-                        self.cursor_position.y = 2;
-                        Terminal::move_cursor_to(self.cursor_position)?;
-                    }
-                    KeyCode::End => {
-                        self.cursor_position.y = Terminal::size()?.width;
-                        Terminal::move_cursor_to(self.cursor_position)?;
-                    }
-                    _ => {}
-                }
+        Ok(())
+    }
+
+    fn move_caret(&mut self, code: KeyCode) -> Result<(), Error> {
+        match code {
+            KeyCode::Left => {
+                self.cursor_position.x = self.cursor_position.x.max(3).saturating_sub(1);
+                Terminal::move_cursor_to(self.cursor_position)?;
             }
+            KeyCode::Right => {
+                self.cursor_position.x = self
+                    .cursor_position
+                    .x
+                    .min(Terminal::size()?.width.saturating_sub(2))
+                    .saturating_add(1);
+                Terminal::move_cursor_to(self.cursor_position)?;
+            }
+            KeyCode::Down => {
+                self.cursor_position.y = self
+                    .cursor_position
+                    .y
+                    .min(Terminal::size()?.height.saturating_sub(2))
+                    .saturating_add(1);
+                Terminal::move_cursor_to(self.cursor_position)?;
+            }
+            KeyCode::Up => {
+                self.cursor_position.y = self.cursor_position.y.max(1).saturating_sub(1);
+                Terminal::move_cursor_to(self.cursor_position)?;
+            }
+            KeyCode::PageDown => {
+                self.cursor_position.y = Terminal::size()?.height;
+                Terminal::move_cursor_to(self.cursor_position)?;
+            }
+            KeyCode::PageUp => {
+                self.cursor_position.y = 0;
+                Terminal::move_cursor_to(self.cursor_position)?;
+            }
+            KeyCode::Home => {
+                self.cursor_position.y = 2;
+                Terminal::move_cursor_to(self.cursor_position)?;
+            }
+            KeyCode::End => {
+                self.cursor_position.y = Terminal::size()?.width;
+                Terminal::move_cursor_to(self.cursor_position)?;
+            }
+            _ => {}
         }
 
         Ok(())

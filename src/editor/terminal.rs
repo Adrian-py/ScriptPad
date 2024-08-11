@@ -13,8 +13,8 @@ pub struct CursorPosition {
     pub y: usize,
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct TerminalSize {
+#[derive(Default, Debug, Copy, Clone)]
+pub struct Size {
     pub width: usize,
     pub height: usize,
 }
@@ -56,10 +56,10 @@ impl Terminal {
         Ok(())
     }
 
-    pub fn size() -> Result<TerminalSize, Error> {
+    pub fn size() -> Result<Size, Error> {
         let (width, height) = crossterm::terminal::size()?;
         #[allow(clippy::as_conversions)]
-        Ok(TerminalSize {
+        Ok(Size {
             width: width as usize,
             height: height as usize,
         })

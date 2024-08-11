@@ -1,4 +1,4 @@
-use crate::editor::terminal::{CursorPosition, Terminal, TerminalSize};
+use crate::editor::terminal::{CursorPosition, Size, Terminal};
 use buffer::Buffer;
 use std::io::Error;
 
@@ -7,9 +7,20 @@ mod buffer;
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(Default)]
 pub struct View {
     buffer: Buffer,
+    needs_redraw: bool,
+    terminal_size: Size,
+}
+
+impl Default for View {
+    fn default() -> Self {
+        Self {
+            buffer: Buffer::default(),
+            needs_redraw: true,
+            terminal_size: Terminal::size().unwrap_or_default(),
+        }
+    }
 }
 
 impl View {
@@ -19,60 +30,80 @@ impl View {
         }
     }
 
-    pub fn render(&self) -> Result<(), Error> {
+    pub fn window_resize(&mut self, new_size: Size) {
+        self.terminal_size = new_size;
+        self.needs_redraw = true;
+    }
+
+    pub fn render(&mut self) -> Result<(), Error> {
+        if !self.needs_redraw {
+            return Ok(());
+        }
+
         if self.buffer.is_empty() {
             self.render_welcome()?;
         } else {
             self.render_buffer()?;
         }
+        self.needs_redraw = false;
+
+        Ok(())
+    }
+
+    fn render_line(row_index: usize, line_content: &str) -> Result<(), Error> {
+        Terminal::move_cursor_to(CursorPosition { x: 0, y: row_index })?;
+        Terminal::clear_line()?;
+        Terminal::print(line_content)?;
 
         Ok(())
     }
 
     fn render_welcome(&self) -> Result<(), Error> {
-        let terminal_size: TerminalSize = Terminal::size()?;
+        let terminal_size: Size = Terminal::size()?;
+
         for curr_row in 0..terminal_size.height {
-            Terminal::clear_line()?;
             #[allow(clippy::integer_division)]
             if curr_row == terminal_size.height / 3 {
-                self.draw_greet_message()?;
+                Self::draw_greet_message(curr_row)?;
                 continue;
             }
-
-            let mut line_contents = String::from("~ ");
-            if curr_row.saturating_add(1) < terminal_size.height {
-                line_contents.push_str("\r\n");
-            }
-            Terminal::print(&line_contents)?;
+            Self::render_line(curr_row, "~ ")?;
         }
 
         Ok(())
     }
 
     fn render_buffer(&self) -> Result<(), Error> {
-        let terminal_size: TerminalSize = Terminal::size()?;
+        let terminal_size: Size = Terminal::size()?;
+
         for curr_row in 0..terminal_size.height {
-            Terminal::clear_line()?;
             if let Some(curr_line) = self.buffer.lines.get(curr_row) {
-                Terminal::print(curr_line)?;
+                let mut truncated_line: &str = curr_line;
+                if curr_line.len() > terminal_size.width {
+                    truncated_line = &curr_line[0..terminal_size.width];
+                }
+
+                Self::render_line(curr_row, truncated_line)?;
             } else {
-                Terminal::print("~")?;
-            }
-            if curr_row < terminal_size.height.saturating_sub(1) {
-                Terminal::print("\r\n")?;
+                Self::render_line(curr_row, "~")?;
             }
         }
 
         Ok(())
     }
 
-    fn draw_greet_message(&self) -> Result<(), Error> {
-        let terminal_size: TerminalSize = Terminal::size()?;
+    fn draw_greet_message(row_index: usize) -> Result<(), Error> {
+        let terminal_size: Size = Terminal::size()?;
 
         let mut message: String = format!("{NAME} editor -- version {VERSION}");
+        #[allow(clippy::arithmetic_side_effects, clippy::integer_division)]
         let spaces: String = " ".repeat((terminal_size.width - message.len()) / 2 - 1);
         message = format!("~{spaces}{message}\r\n");
-        Terminal::print(&message)?;
+
+        if message.len() > terminal_size.width {
+            message = message[0..terminal_size.width].to_string();
+        }
+        Self::render_line(row_index, &message)?;
 
         Ok(())
     }
