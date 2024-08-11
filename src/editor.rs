@@ -3,6 +3,7 @@ use crossterm::event::{
     Event::{self},
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
 };
+use std::panic::{set_hook, take_hook};
 use std::{env, io::Error};
 use terminal::{CursorPosition, Size, Terminal};
 use view::View;
@@ -16,24 +17,59 @@ pub struct Editor {
     view: View,
 }
 
+impl Drop for Editor {
+    fn drop(&mut self) {
+        let _ = Terminal::terminate();
+        let _ = Terminal::print("Goodbye! :D");
+    }
+}
+
 impl Editor {
-    pub fn default() -> Self {
-        Self {
-            cursor_position: CursorPosition { x: 2, y: 0 },
-            should_exit: false,
-            view: View::default(),
+    pub fn new() -> Result<Self, Error> {
+        // Add customization to hook handling
+        let current_panic_hook = take_hook();
+        set_hook(Box::new(move |info| {
+            let _ = Terminal::terminate();
+            current_panic_hook(info);
+        }));
+
+        Terminal::initialize().unwrap();
+
+        // Initialize editor attributes
+        let initial_cursor_position: CursorPosition = CursorPosition { x: 2, y: 0 };
+        let mut view: View = View::default();
+        let args: Vec<String> = env::args().collect::<Vec<String>>(); // retrieve file path to load from arguments
+        if let Some(file_path) = args.get(1) {
+            view.load(file_path);
         }
+
+        Ok(Self {
+            cursor_position: initial_cursor_position,
+            should_exit: false,
+            view,
+        })
     }
 
     pub fn run(&mut self) {
-        Terminal::initialize().unwrap();
-        self.handle_args();
+        loop {
+            self.refresh_screen();
+            if self.should_exit {
+                break;
+            }
 
-        let editor_res = self.repl();
-        Terminal::terminate().unwrap();
-        editor_res.unwrap();
+            match read() {
+                Ok(event) => {
+                    self.handle_event(event);
+                }
+                Err(err) => {
+                    #[cfg(debug_assertions)]
+                    {
+                        panic!("Could not read event: {err:?}");
+                    }
+                }
+            }
+        }
     }
-
     pub fn handle_args(&mut self) {
         let args = env::args().collect::<Vec<String>>();
 
@@ -42,38 +78,16 @@ impl Editor {
         }
     }
 
-    fn repl(&mut self) -> Result<(), Error> {
-        loop {
-            self.refresh_screen()?;
-            if self.should_exit {
-                break;
-            }
-
-            let event = read()?;
-            self.handle_event(event)?;
-        }
-
-        Ok(())
-    }
-
-    fn refresh_screen(&mut self) -> Result<(), Error> {
-        Terminal::hide_cursor()?;
-        Terminal::move_cursor_to(CursorPosition { x: 0, y: 0 })?;
-        if self.should_exit {
-            Terminal::clear_screen()?;
-            Terminal::print("Goodbye! :D")?;
-        } else {
-            self.view.render()?;
-            Terminal::move_cursor_to(self.cursor_position)?;
-        }
-        Terminal::show_cursor()?;
-        Terminal::execute()?;
-
-        Ok(())
+    fn refresh_screen(&mut self) {
+        let _ = Terminal::hide_cursor();
+        self.view.render();
+        let _ = Terminal::move_cursor_to(self.cursor_position);
+        let _ = Terminal::show_cursor();
+        let _ = Terminal::execute();
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    fn handle_event(&mut self, event: Event) -> Result<(), Error> {
+    fn handle_event(&mut self, event: Event) {
         match event {
             Event::Key(KeyEvent {
                 code,
@@ -84,7 +98,6 @@ impl Editor {
                 (KeyCode::Char('q'), KeyModifiers::CONTROL) => {
                     self.should_exit = true;
                 }
-                (KeyCode::Char(c), _) => Terminal::print(&c.to_string())?,
                 (
                     KeyCode::Left
                     | KeyCode::Right
@@ -96,7 +109,7 @@ impl Editor {
                     | KeyCode::End,
                     _,
                 ) => {
-                    self.move_caret(code)?;
+                    self.move_caret(code);
                 }
                 _ => {}
             },
@@ -114,55 +127,36 @@ impl Editor {
             }
             _ => {}
         }
-
-        Ok(())
     }
 
-    fn move_caret(&mut self, code: KeyCode) -> Result<(), Error> {
+    fn move_caret(&mut self, code: KeyCode) {
+        let terminal_size = Terminal::size().unwrap_or_default();
         match code {
             KeyCode::Left => {
-                self.cursor_position.x = self.cursor_position.x.max(3).saturating_sub(1);
-                Terminal::move_cursor_to(self.cursor_position)?;
+                self.cursor_position.x = self.cursor_position.x.saturating_sub(1);
             }
             KeyCode::Right => {
-                self.cursor_position.x = self
-                    .cursor_position
-                    .x
-                    .min(Terminal::size()?.width.saturating_sub(2))
-                    .saturating_add(1);
-                Terminal::move_cursor_to(self.cursor_position)?;
+                self.cursor_position.x = self.cursor_position.x.saturating_add(1);
             }
             KeyCode::Down => {
-                self.cursor_position.y = self
-                    .cursor_position
-                    .y
-                    .min(Terminal::size()?.height.saturating_sub(2))
-                    .saturating_add(1);
-                Terminal::move_cursor_to(self.cursor_position)?;
+                self.cursor_position.y = self.cursor_position.y.saturating_add(1);
             }
             KeyCode::Up => {
-                self.cursor_position.y = self.cursor_position.y.max(1).saturating_sub(1);
-                Terminal::move_cursor_to(self.cursor_position)?;
+                self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
             }
             KeyCode::PageDown => {
-                self.cursor_position.y = Terminal::size()?.height;
-                Terminal::move_cursor_to(self.cursor_position)?;
+                self.cursor_position.y = terminal_size.height;
             }
             KeyCode::PageUp => {
                 self.cursor_position.y = 0;
-                Terminal::move_cursor_to(self.cursor_position)?;
             }
             KeyCode::Home => {
-                self.cursor_position.y = 2;
-                Terminal::move_cursor_to(self.cursor_position)?;
+                self.cursor_position.x = 0;
             }
             KeyCode::End => {
-                self.cursor_position.y = Terminal::size()?.width;
-                Terminal::move_cursor_to(self.cursor_position)?;
+                self.cursor_position.x = terminal_size.width;
             }
             _ => {}
         }
-
-        Ok(())
     }
 }

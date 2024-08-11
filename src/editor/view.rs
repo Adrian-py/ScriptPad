@@ -1,6 +1,5 @@
 use crate::editor::terminal::{CursorPosition, Size, Terminal};
 use buffer::Buffer;
-use std::io::Error;
 
 mod buffer;
 
@@ -35,46 +34,40 @@ impl View {
         self.needs_redraw = true;
     }
 
-    pub fn render(&mut self) -> Result<(), Error> {
+    pub fn render(&mut self) {
         if !self.needs_redraw {
-            return Ok(());
+            return;
         }
 
         if self.buffer.is_empty() {
-            self.render_welcome()?;
+            self.render_welcome();
         } else {
-            self.render_buffer()?;
+            self.render_buffer();
         }
         self.needs_redraw = false;
-
-        Ok(())
     }
 
-    fn render_line(row_index: usize, line_content: &str) -> Result<(), Error> {
-        Terminal::move_cursor_to(CursorPosition { x: 0, y: row_index })?;
-        Terminal::clear_line()?;
-        Terminal::print(line_content)?;
-
-        Ok(())
+    fn render_line(row_index: usize, line_content: &str) {
+        let print_res = Terminal::print_row(row_index, line_content);
+        debug_assert!(print_res.is_err(), "Failed to print row!");
+        let _ = Terminal::print(line_content);
     }
 
-    fn render_welcome(&self) -> Result<(), Error> {
-        let terminal_size: Size = Terminal::size()?;
+    fn render_welcome(&self) {
+        let terminal_size: Size = Terminal::size().unwrap_or_default();
 
         for curr_row in 0..terminal_size.height {
             #[allow(clippy::integer_division)]
             if curr_row == terminal_size.height / 3 {
-                Self::draw_greet_message(curr_row)?;
+                Self::draw_greet_message(curr_row);
                 continue;
             }
-            Self::render_line(curr_row, "~ ")?;
+            Self::render_line(curr_row, "~ ");
         }
-
-        Ok(())
     }
 
-    fn render_buffer(&self) -> Result<(), Error> {
-        let terminal_size: Size = Terminal::size()?;
+    fn render_buffer(&self) {
+        let terminal_size: Size = Terminal::size().unwrap_or_default();
 
         for curr_row in 0..terminal_size.height {
             if let Some(curr_line) = self.buffer.lines.get(curr_row) {
@@ -83,17 +76,15 @@ impl View {
                     truncated_line = &curr_line[0..terminal_size.width];
                 }
 
-                Self::render_line(curr_row, truncated_line)?;
+                Self::render_line(curr_row, truncated_line);
             } else {
-                Self::render_line(curr_row, "~")?;
+                Self::render_line(curr_row, "~");
             }
         }
-
-        Ok(())
     }
 
-    fn draw_greet_message(row_index: usize) -> Result<(), Error> {
-        let terminal_size: Size = Terminal::size()?;
+    fn draw_greet_message(row_index: usize) {
+        let terminal_size: Size = Terminal::size().unwrap_or_default();
 
         let mut message: String = format!("{NAME} editor -- version {VERSION}");
         #[allow(clippy::arithmetic_side_effects, clippy::integer_division)]
@@ -103,8 +94,6 @@ impl View {
         if message.len() > terminal_size.width {
             message = message[0..terminal_size.width].to_string();
         }
-        Self::render_line(row_index, &message)?;
-
-        Ok(())
+        Self::render_line(row_index, &message);
     }
 }
