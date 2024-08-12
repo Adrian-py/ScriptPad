@@ -11,7 +11,7 @@ use crossterm::{
 use std::io::{stdout, Error, Write};
 
 #[derive(Copy, Clone)]
-pub struct CursorPosition {
+pub struct CaretPosition {
     pub x: usize,
     pub y: usize,
 }
@@ -29,14 +29,14 @@ impl Terminal {
         enable_raw_mode()?;
         let _ = Self::enter_alternate_screen();
         Self::clear_screen()?;
-        Self::move_cursor_to(CursorPosition { x: 0, y: 0 })?;
+        Self::move_caret_to(CaretPosition { x: 0, y: 0 })?;
         Self::execute()?;
         Ok(())
     }
 
     pub fn terminate() -> Result<(), Error> {
         let _ = Self::leave_alternate_screen();
-        let _ = Self::show_cursor();
+        let _ = Self::show_caret();
         Self::execute()?;
         disable_raw_mode()?;
         Ok(())
@@ -87,24 +87,24 @@ impl Terminal {
     }
 
     pub fn print_row(row: usize, str: &str) -> Result<(), Error> {
-        Self::move_cursor_to(CursorPosition { x: 0, y: row })?;
+        Self::move_caret_to(CaretPosition { x: 0, y: row })?;
         Self::clear_line()?;
         Self::queue_command(Print(str))?;
         Ok(())
     }
 
-    pub fn move_cursor_to(pos: CursorPosition) -> Result<(), Error> {
+    pub fn move_caret_to(pos: CaretPosition) -> Result<(), Error> {
         #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
         Self::queue_command(MoveTo(pos.x as u16, pos.y as u16))?;
         Ok(())
     }
 
-    pub fn hide_cursor() -> Result<(), Error> {
+    pub fn hide_caret() -> Result<(), Error> {
         Self::queue_command(Hide)?;
         Ok(())
     }
 
-    pub fn show_cursor() -> Result<(), Error> {
+    pub fn show_caret() -> Result<(), Error> {
         Self::queue_command(Show)?;
         Ok(())
     }

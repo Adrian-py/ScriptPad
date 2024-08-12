@@ -5,14 +5,14 @@ use crossterm::event::{
 };
 use std::panic::{set_hook, take_hook};
 use std::{env, io::Error};
-use terminal::{CursorPosition, Size, Terminal};
+use terminal::{CaretPosition, Size, Terminal};
 use view::View;
 
 mod terminal;
 mod view;
 
 pub struct Editor {
-    cursor_position: CursorPosition,
+    cursor_position: CaretPosition,
     should_exit: bool,
     view: View,
 }
@@ -36,7 +36,7 @@ impl Editor {
         Terminal::initialize().unwrap();
 
         // Initialize editor attributes
-        let initial_cursor_position: CursorPosition = CursorPosition { x: 2, y: 0 };
+        let initial_caret_position: CaretPosition = CaretPosition { x: 2, y: 0 };
         let mut view: View = View::default();
         let args: Vec<String> = env::args().collect::<Vec<String>>(); // retrieve file path to load from arguments
         if let Some(file_path) = args.get(1) {
@@ -44,7 +44,7 @@ impl Editor {
         }
 
         Ok(Self {
-            cursor_position: initial_cursor_position,
+            cursor_position: initial_caret_position,
             should_exit: false,
             view,
         })
@@ -79,10 +79,10 @@ impl Editor {
     }
 
     fn refresh_screen(&mut self) {
-        let _ = Terminal::hide_cursor();
+        let _ = Terminal::hide_caret();
         self.view.render();
-        let _ = Terminal::move_cursor_to(self.cursor_position);
-        let _ = Terminal::show_cursor();
+        let _ = Terminal::move_caret_to(self.cursor_position);
+        let _ = Terminal::show_caret();
         let _ = Terminal::execute();
     }
 
