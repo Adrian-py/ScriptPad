@@ -1,4 +1,4 @@
-use crate::editor::terminal::{CursorPosition, Size, Terminal};
+use crate::editor::terminal::{Size, Terminal};
 use buffer::Buffer;
 
 mod buffer;
@@ -49,8 +49,7 @@ impl View {
 
     fn render_line(row_index: usize, line_content: &str) {
         let print_res = Terminal::print_row(row_index, line_content);
-        debug_assert!(print_res.is_err(), "Failed to print row!");
-        let _ = Terminal::print(line_content);
+        debug_assert!(print_res.is_ok(), "Failed to print row!");
     }
 
     fn render_welcome(&self) {
@@ -62,7 +61,7 @@ impl View {
                 Self::draw_greet_message(curr_row);
                 continue;
             }
-            Self::render_line(curr_row, "~ ");
+            Self::render_line(curr_row, "~");
         }
     }
 
