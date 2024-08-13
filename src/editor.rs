@@ -1,18 +1,19 @@
+use command::Command;
 use crossterm::event::{
     read,
     Event::{self},
-    KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
+    KeyEvent, KeyEventKind,
 };
 use std::panic::{set_hook, take_hook};
 use std::{env, io::Error};
-use terminal::{CaretPosition, Size, Terminal};
+use terminal::Terminal;
 use view::View;
 
+mod command;
 mod terminal;
 mod view;
 
 pub struct Editor {
-    cursor_position: CaretPosition,
     should_exit: bool,
     view: View,
 }
@@ -33,10 +34,9 @@ impl Editor {
             current_panic_hook(info);
         }));
 
-        Terminal::initialize().unwrap();
+        Terminal::initialize()?;
 
         // Initialize editor attributes
-        let initial_caret_position: CaretPosition = CaretPosition { x: 2, y: 0 };
         let mut view: View = View::default();
         let args: Vec<String> = env::args().collect::<Vec<String>>(); // retrieve file path to load from arguments
         if let Some(file_path) = args.get(1) {
@@ -44,7 +44,6 @@ impl Editor {
         }
 
         Ok(Self {
-            cursor_position: initial_caret_position,
             should_exit: false,
             view,
         })
@@ -81,82 +80,34 @@ impl Editor {
     fn refresh_screen(&mut self) {
         let _ = Terminal::hide_caret();
         self.view.render();
-        let _ = Terminal::move_caret_to(self.cursor_position);
+        let _ = Terminal::move_caret_to(self.view.get_position());
         let _ = Terminal::show_caret();
         let _ = Terminal::execute();
     }
 
     #[allow(clippy::needless_pass_by_value)]
     fn handle_event(&mut self, event: Event) {
-        match event {
-            Event::Key(KeyEvent {
-                code,
-                kind: KeyEventKind::Press,
-                modifiers,
-                ..
-            }) => match (code, modifiers) {
-                (KeyCode::Char('q'), KeyModifiers::CONTROL) => {
-                    self.should_exit = true;
-                }
-                (
-                    KeyCode::Left
-                    | KeyCode::Right
-                    | KeyCode::Up
-                    | KeyCode::Down
-                    | KeyCode::PageDown
-                    | KeyCode::PageUp
-                    | KeyCode::Home
-                    | KeyCode::End,
-                    _,
-                ) => {
-                    self.move_caret(code);
-                }
-                _ => {}
-            },
-            Event::Resize(w, h) => {
-                // Cast u16 to usize, and ignore clippy warnings
-                #[allow(clippy::as_conversions)]
-                let w_usize = w as usize;
-                #[allow(clippy::as_conversions)]
-                let h_usize = h as usize;
+        let should_execute: bool = match &event {
+            Event::Key(KeyEvent { kind, .. }) => kind == &KeyEventKind::Press,
+            Event::Resize(_, _) => true,
+            _ => false,
+        };
 
-                self.view.window_resize(Size {
-                    width: w_usize,
-                    height: h_usize,
-                });
-            }
-            _ => {}
+        if !should_execute {
+            return;
         }
-    }
 
-    fn move_caret(&mut self, code: KeyCode) {
-        let terminal_size = Terminal::size().unwrap_or_default();
-        match code {
-            KeyCode::Left => {
-                self.cursor_position.x = self.cursor_position.x.saturating_sub(1);
+        match Command::try_from(event) {
+            Ok(command) => match command {
+                Command::Quit => self.should_exit = true,
+                _ => self.view.handle_command(command),
+            },
+            Err(error_message) => {
+                #[cfg(debug_assertions)]
+                {
+                    panic!("Command not supported: {error_message}");
+                }
             }
-            KeyCode::Right => {
-                self.cursor_position.x = self.cursor_position.x.saturating_add(1);
-            }
-            KeyCode::Down => {
-                self.cursor_position.y = self.cursor_position.y.saturating_add(1);
-            }
-            KeyCode::Up => {
-                self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
-            }
-            KeyCode::PageDown => {
-                self.cursor_position.y = terminal_size.height;
-            }
-            KeyCode::PageUp => {
-                self.cursor_position.y = 0;
-            }
-            KeyCode::Home => {
-                self.cursor_position.x = 0;
-            }
-            KeyCode::End => {
-                self.cursor_position.x = terminal_size.width;
-            }
-            _ => {}
         }
     }
 }
