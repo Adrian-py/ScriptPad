@@ -4,4 +4,11 @@ pub struct Position {
     pub col: usize,
 }
 
-impl Position {}
+impl Position {
+    pub fn substract(&self, other: &Self) -> Self {
+        Self {
+            row: self.row.saturating_sub(other.row),
+            col: self.col.saturating_sub(other.col),
+        }
+    }
+}

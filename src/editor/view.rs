@@ -60,18 +60,7 @@ impl View {
     }
 
     pub fn get_position(&self) -> Position {
-        Position {
-            row: self
-                .caret
-                .position
-                .row
-                .saturating_sub(self.scroll_offset.row),
-            col: self
-                .caret
-                .position
-                .col
-                .saturating_sub(self.scroll_offset.col),
-        }
+        self.caret.position.substract(&self.scroll_offset)
     }
 
     pub fn render(&mut self) {
