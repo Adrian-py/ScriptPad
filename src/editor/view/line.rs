@@ -23,4 +23,8 @@ impl Line {
             .unwrap_or_default()
             .to_string()
     }
+
+    pub fn to_string(&self) -> &String {
+        &self.line_content
+    }
 }

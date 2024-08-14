@@ -1,9 +1,11 @@
 use super::command::{Command, Direction};
 use super::terminal::{Size, Terminal};
 use buffer::Buffer;
+use caret::Caret;
 use position::Position;
 
 mod buffer;
+mod caret;
 mod line;
 pub mod position;
 
@@ -11,7 +13,7 @@ const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct View {
-    caret_position: Position,
+    caret: Caret,
     scroll_offset: Position,
     buffer: Buffer,
     needs_redraw: bool,
@@ -21,7 +23,7 @@ pub struct View {
 impl Default for View {
     fn default() -> Self {
         Self {
-            caret_position: Position::default(),
+            caret: Caret::default(),
             scroll_offset: Position::default(),
             buffer: Buffer::default(),
             needs_redraw: true,
@@ -52,18 +54,7 @@ impl View {
     }
 
     pub fn move_caret(&mut self, direction: Direction) {
-        match direction {
-            Direction::Up => self.caret_position.row = self.caret_position.row.saturating_sub(1),
-            Direction::Down => self.caret_position.row = self.caret_position.row.saturating_add(1),
-            Direction::Left => self.caret_position.col = self.caret_position.col.saturating_sub(1),
-            Direction::Right => self.caret_position.col = self.caret_position.col.saturating_add(1),
-            Direction::PageUp => self.caret_position.row = 0,
-            Direction::PageDown => {
-                self.caret_position.row = self.terminal_size.height.saturating_sub(1)
-            }
-            Direction::Home => self.caret_position.col = 0,
-            Direction::End => self.caret_position.col = self.terminal_size.width.saturating_sub(1),
-        }
+        self.caret.move_caret(&direction);
         self.needs_redraw = true;
         self.adjust_screen_to_offset();
     }
@@ -71,11 +62,13 @@ impl View {
     pub fn get_position(&self) -> Position {
         Position {
             row: self
-                .caret_position
+                .caret
+                .position
                 .row
                 .saturating_sub(self.scroll_offset.row),
             col: self
-                .caret_position
+                .caret
+                .position
                 .col
                 .saturating_sub(self.scroll_offset.col),
         }
@@ -91,6 +84,7 @@ impl View {
         } else {
             self.render_buffer();
         }
+
         self.needs_redraw = false;
     }
 
@@ -120,12 +114,7 @@ impl View {
                 .lines
                 .get(curr_row.saturating_add(self.scroll_offset.row))
             {
-                let left = self.scroll_offset.col;
-                let right = self
-                    .scroll_offset
-                    .col
-                    .saturating_add(self.terminal_size.width);
-                self.render_line(curr_row, &curr_line.get(left..right));
+                self.render_line(curr_row, &curr_line.to_string());
             } else {
                 self.render_line(curr_row, "~");
             }
@@ -146,17 +135,18 @@ impl View {
 
     fn adjust_screen_to_offset(&mut self) {
         // Horizontal
-        if self.caret_position.col < self.scroll_offset.col {
-            self.scroll_offset.col = self.caret_position.col;
+        if self.caret.position.col < self.scroll_offset.col {
+            self.scroll_offset.col = self.caret.position.col;
             self.needs_redraw = true;
-        } else if self.caret_position.col
+        } else if self.caret.position.col
             >= self
                 .scroll_offset
                 .col
                 .saturating_add(self.terminal_size.width)
         {
             self.scroll_offset.col = self
-                .caret_position
+                .caret
+                .position
                 .col
                 .saturating_sub(self.terminal_size.width)
                 .saturating_add(1);
@@ -164,17 +154,18 @@ impl View {
         }
 
         // Vertical offset
-        if self.caret_position.row < self.scroll_offset.row {
-            self.scroll_offset.row = self.caret_position.row;
+        if self.caret.position.row < self.scroll_offset.row {
+            self.scroll_offset.row = self.caret.position.row;
             self.needs_redraw = true;
-        } else if self.caret_position.row
+        } else if self.caret.position.row
             >= self
                 .scroll_offset
                 .row
                 .saturating_add(self.terminal_size.height)
         {
             self.scroll_offset.row = self
-                .caret_position
+                .caret
+                .position
                 .row
                 .saturating_sub(self.terminal_size.height)
                 .saturating_add(1);
