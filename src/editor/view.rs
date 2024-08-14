@@ -54,7 +54,7 @@ impl View {
     }
 
     pub fn move_caret(&mut self, direction: Direction) {
-        self.caret.move_caret(&direction);
+        self.caret.move_caret(&direction, &self.buffer);
         self.needs_redraw = true;
         self.adjust_screen_to_offset();
     }
@@ -73,7 +73,6 @@ impl View {
         } else {
             self.render_buffer();
         }
-
         self.needs_redraw = false;
     }
 
