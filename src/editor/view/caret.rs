@@ -9,7 +9,6 @@ pub struct Caret {
 impl Caret {
     pub fn move_caret(&mut self, direction: &Direction, buffer: &Buffer) {
         let Position { mut row, mut col } = self.position;
-        let terminal_size = Terminal::size().unwrap_or_default();
         let lines = &buffer.lines;
 
         if lines.len() == 0 {
@@ -47,9 +46,9 @@ impl Caret {
                 }
             }
             Direction::PageUp => row = 0,
-            Direction::PageDown => row = terminal_size.height.saturating_sub(1),
+            Direction::PageDown => row = lines.len().saturating_sub(1),
             Direction::Home => col = 0,
-            Direction::End => col = terminal_size.width,
+            Direction::End => col = lines[row].len(),
         }
 
         self.position = Position { row, col };

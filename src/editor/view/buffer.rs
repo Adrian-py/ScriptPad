@@ -18,6 +18,7 @@ impl Buffer {
         for line in file_to_string.lines() {
             lines.push(Line::from(line));
         }
+        lines.push(Line::from(""));
 
         Ok(Self { lines })
     }
