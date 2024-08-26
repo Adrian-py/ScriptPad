@@ -24,7 +24,7 @@ impl Terminal {
         enable_raw_mode()?;
         let _ = Self::enter_alternate_screen();
         Self::clear_screen()?;
-        Self::move_caret_to(Position { row: 0, col: 0 })?;
+        Self::move_caret_to(&Position { row: 0, col: 0 })?;
         Self::execute()?;
         Ok(())
     }
@@ -82,13 +82,13 @@ impl Terminal {
     }
 
     pub fn print_row(row: usize, str: &str) -> Result<(), Error> {
-        Self::move_caret_to(Position { row, col: 0 })?;
+        Self::move_caret_to(&Position { row, col: 0 })?;
         Self::clear_line()?;
         Self::queue_command(Print(str))?;
         Ok(())
     }
 
-    pub fn move_caret_to(pos: Position) -> Result<(), Error> {
+    pub fn move_caret_to(pos: &Position) -> Result<(), Error> {
         #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
         Self::queue_command(MoveTo(pos.col as u16, pos.row as u16))?;
         Ok(())

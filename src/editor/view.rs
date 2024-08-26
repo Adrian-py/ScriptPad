@@ -42,7 +42,7 @@ impl View {
 
     pub fn handle_command(&mut self, command: Command) {
         match command {
-            Command::Move(direction) => self.move_caret(direction),
+            Command::Move(direction) => self.move_caret(&direction),
             Command::Resize(new_size) => self.terminal_resize(new_size),
             _ => {}
         }
@@ -53,9 +53,8 @@ impl View {
         self.needs_redraw = true;
     }
 
-    pub fn move_caret(&mut self, direction: Direction) {
-        self.caret.move_caret(&direction, &self.buffer);
-        self.needs_redraw = true;
+    pub fn move_caret(&mut self, direction: &Direction) {
+        self.caret.move_caret(direction, &self.buffer);
         self.adjust_screen_to_offset();
     }
 
@@ -77,8 +76,7 @@ impl View {
     }
 
     fn render_line(&self, row_index: usize, line_content: &str) {
-        let modified_line_content = &line_content[self.scroll_offset.col.min(line_content.len())..];
-        let print_res = Terminal::print_row(row_index, modified_line_content);
+        let print_res = Terminal::print_row(row_index, line_content);
         debug_assert!(print_res.is_ok(), "Failed to print row!");
     }
 
@@ -95,14 +93,20 @@ impl View {
         }
     }
 
-    fn render_buffer(&self) {
+    fn render_buffer(&mut self) {
         for curr_row in 0..self.terminal_size.height {
             if let Some(curr_line) = self
                 .buffer
                 .lines
                 .get(curr_row.saturating_add(self.scroll_offset.row))
             {
-                self.render_line(curr_row, &curr_line.to_string());
+                let left = self.scroll_offset.col;
+                let right = self
+                    .scroll_offset
+                    .col
+                    .saturating_add(self.terminal_size.width);
+                let truncated_string = &curr_line.get_visible_graphemes(left..right);
+                self.render_line(curr_row, truncated_string);
             } else {
                 self.render_line(curr_row, "~");
             }
@@ -112,7 +116,11 @@ impl View {
     fn draw_greet_message(&self, row_index: usize) {
         let mut message: String = format!("{NAME} editor -- version {VERSION}");
         #[allow(clippy::arithmetic_side_effects, clippy::integer_division)]
-        let spaces: String = " ".repeat((self.terminal_size.width - message.len()) / 2 - 1);
+        let spaces: String = " ".repeat(
+            (self.terminal_size.width - message.len())
+                .saturating_div(2)
+                .saturating_sub(1),
+        );
         message = format!("~{spaces}{message}\r\n");
 
         if message.len() > self.terminal_size.width {
