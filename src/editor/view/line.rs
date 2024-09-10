@@ -1,3 +1,4 @@
+use super::Position;
 use std::ops::Range;
 use text_grapheme::TextGrapheme;
 
@@ -77,5 +78,14 @@ impl Line {
         }
 
         total_prev_width
+    }
+
+    pub fn insert_char(&mut self, inserted_char: char, line_insert_location: usize) {
+        let new_grapheme = TextGrapheme::new(&format!("{inserted_char}"));
+        self.line_content.insert(line_insert_location, new_grapheme);
+    }
+
+    pub fn remove_char(&mut self, line_remove_location: usize) {
+        self.line_content.remove(line_remove_location);
     }
 }

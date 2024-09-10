@@ -16,17 +16,13 @@ impl Caret {
         match direction {
             Direction::Up => {
                 row = row.saturating_sub(1);
-                col = lines[row]
-                    .get_nth_location(self.line_location)
-                    .min(lines[row].get_total_width());
                 self.line_location = self.line_location.min(lines[row].len());
+                col = lines[row].get_nth_location(self.line_location);
             }
             Direction::Down => {
                 row = row.saturating_add(1).min(lines.len().saturating_sub(1));
-                col = lines[row]
-                    .get_nth_location(self.line_location)
-                    .min(lines[row].get_total_width());
                 self.line_location = self.line_location.min(lines[row].len());
+                col = lines[row].get_nth_location(self.line_location);
             }
             Direction::Left => {
                 if self.line_location == 0 && row > 0 {

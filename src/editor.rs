@@ -102,11 +102,8 @@ impl Editor {
                 Command::Quit => self.should_exit = true,
                 _ => self.view.handle_command(command),
             },
-            Err(error_message) => {
-                #[cfg(debug_assertions)]
-                {
-                    panic!("Command not supported: {error_message}");
-                }
+            Err(_) => {
+                // Ignore error for both debug and release
             }
         }
     }

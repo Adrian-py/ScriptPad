@@ -14,6 +14,8 @@ pub enum Direction {
 
 pub enum Command {
     Move(Direction),
+    Insert(char),
+    Remove,
     Resize(Size),
     Quit,
 }
@@ -65,6 +67,8 @@ impl TryFrom<Event> for Command {
                     Ok(direction) => Ok(Self::Move(direction)),
                     Err(err) => Err(format!("{err}")),
                 },
+                (KeyCode::Char(c), _) => Ok(Self::Insert(c)),
+                (KeyCode::Backspace, _) => Ok(Self::Remove),
                 _ => Err(format!("Code not supported!")),
             },
             Event::Resize(width_u16, height_u16) => {

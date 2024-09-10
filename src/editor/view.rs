@@ -41,11 +41,19 @@ impl View {
     }
 
     pub fn handle_command(&mut self, command: Command) {
+        // Add commands to handle here
         match command {
             Command::Move(direction) => self.move_caret(&direction),
             Command::Resize(new_size) => self.terminal_resize(new_size),
+            Command::Insert(char) => self.insert(char),
+            Command::Remove => self.remove(),
             _ => {}
         }
+    }
+
+    pub fn move_caret(&mut self, direction: &Direction) {
+        self.caret.move_caret(direction, &self.buffer);
+        self.adjust_screen_to_offset();
     }
 
     pub fn terminal_resize(&mut self, new_size: Size) {
@@ -53,9 +61,22 @@ impl View {
         self.needs_redraw = true;
     }
 
-    pub fn move_caret(&mut self, direction: &Direction) {
-        self.caret.move_caret(direction, &self.buffer);
-        self.adjust_screen_to_offset();
+    pub fn insert(&mut self, inserted_char: char) {
+        self.buffer.insert(
+            inserted_char,
+            self.caret.position.row,
+            self.caret.line_location,
+        );
+        self.move_caret(&Direction::Right);
+        self.needs_redraw = true;
+    }
+
+    pub fn remove(&mut self) {
+        // TODO: Modify offset for when trying to remove chars when screen is on offset
+        self.buffer
+            .remove(self.caret.position.row, self.caret.line_location);
+        self.move_caret(&Direction::Left);
+        self.needs_redraw = true;
     }
 
     pub fn get_position(&self) -> Position {
@@ -130,7 +151,7 @@ impl View {
     }
 
     fn adjust_screen_to_offset(&mut self) {
-        // Horizontal
+        // Horizontal offset
         if self.caret.position.col < self.scroll_offset.col {
             self.scroll_offset.col = self.caret.position.col;
             self.needs_redraw = true;
