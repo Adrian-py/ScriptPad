@@ -16,6 +16,7 @@ pub enum Command {
     Move(Direction),
     Insert(char),
     Remove,
+    Delete,
     Resize(Size),
     Quit,
 }
@@ -69,6 +70,7 @@ impl TryFrom<Event> for Command {
                 },
                 (KeyCode::Char(c), _) => Ok(Self::Insert(c)),
                 (KeyCode::Backspace, _) => Ok(Self::Remove),
+                (KeyCode::Delete, _) => Ok(Self::Delete),
                 _ => Err(format!("Code not supported!")),
             },
             Event::Resize(width_u16, height_u16) => {

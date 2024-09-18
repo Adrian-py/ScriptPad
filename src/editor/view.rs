@@ -46,6 +46,7 @@ impl View {
             Command::Move(direction) => self.move_caret(&direction),
             Command::Resize(new_size) => self.terminal_resize(new_size),
             Command::Insert(char) => self.insert(char),
+            Command::Delete => self.delete(),
             Command::Remove => self.remove(),
             _ => {}
         }
@@ -76,6 +77,12 @@ impl View {
         self.buffer
             .remove(self.caret.position.row, self.caret.line_location);
         self.move_caret(&Direction::Left);
+        self.needs_redraw = true;
+    }
+
+    pub fn delete(&mut self) {
+        self.buffer
+            .delete(self.caret.position.row, self.caret.line_location);
         self.needs_redraw = true;
     }
 
