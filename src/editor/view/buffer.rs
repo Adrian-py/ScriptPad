@@ -1,4 +1,4 @@
-use super::line::{self, Line};
+use super::line::Line;
 use std::{fs::read_to_string, io::Error};
 
 pub struct Buffer {
@@ -33,26 +33,38 @@ impl Buffer {
 
     pub fn remove(&mut self, remove_row: usize, line_remove_location: usize) {
         if line_remove_location == 0 {
-            return; // TODO: Handle combining current line with line above when hitting backspace on the beginning of a line
+            let (current_row, prev_row) = if remove_row > 0 {
+                let (left, right) = self.lines.split_at_mut(remove_row);
+                (&mut right[0], Some(&mut left[remove_row.saturating_sub(1)]))
+            } else {
+                (&mut self.lines[remove_row], None)
+            };
+
+            if let Some(row) = prev_row {
+                row.append(&mut current_row.line_content);
+                self.lines.remove(remove_row);
+            }
+            return;
         }
+
         self.lines[remove_row].remove(line_remove_location.saturating_sub(1));
     }
 
     pub fn delete(&mut self, remove_row: usize, line_delete_location: usize) {
-        let (current_row, next_row) = if remove_row.saturating_add(1) < self.lines.len() {
-            let (left, right) = self.lines.split_at_mut(remove_row.saturating_add(1));
-            (&mut left[remove_row], Some(&mut right[0]))
-        } else {
-            (&mut self.lines[remove_row], None)
-        };
+        if line_delete_location == self.lines[remove_row].len() {
+            let (current_row, next_row) = if remove_row.saturating_add(1) < self.lines.len() {
+                let (left, right) = self.lines.split_at_mut(remove_row.saturating_add(1));
+                (&mut left[remove_row], Some(&mut right[0]))
+            } else {
+                (&mut self.lines[remove_row], None)
+            };
 
-        if line_delete_location == current_row.len() {
-            if let Some(next_row) = next_row {
-                current_row.append(&mut next_row.line_content);
+            if let Some(row) = next_row {
+                current_row.append(&mut row.line_content);
                 self.lines.remove(remove_row.saturating_add(1));
             }
             return;
         }
-        current_row.delete(line_delete_location);
+        self.lines[remove_row].delete(line_delete_location);
     }
 }

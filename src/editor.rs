@@ -21,7 +21,7 @@ pub struct Editor {
 impl Drop for Editor {
     fn drop(&mut self) {
         let _ = Terminal::terminate();
-        let _ = Terminal::print("Goodbye! :D");
+        let _ = Terminal::print("Goodbye! :D\n");
     }
 }
 
