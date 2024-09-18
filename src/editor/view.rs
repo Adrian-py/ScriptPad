@@ -40,8 +40,13 @@ impl View {
         }
     }
 
+    /*
+     *
+     * Command Handling
+     * (Add any additional commands to be handled here)
+     *
+     */
     pub fn handle_command(&mut self, command: Command) {
-        // Add commands to handle here
         match command {
             Command::Move(direction) => self.move_caret(&direction),
             Command::Resize(new_size) => self.terminal_resize(new_size),
@@ -52,44 +57,13 @@ impl View {
         }
     }
 
-    pub fn move_caret(&mut self, direction: &Direction) {
-        self.caret.move_caret(direction, &self.buffer);
-        self.adjust_screen_to_offset();
-    }
-
-    pub fn terminal_resize(&mut self, new_size: Size) {
-        self.terminal_size = new_size;
-        self.needs_redraw = true;
-    }
-
-    pub fn insert(&mut self, inserted_char: char) {
-        self.buffer.insert(
-            inserted_char,
-            self.caret.position.row,
-            self.caret.line_location,
-        );
-        self.move_caret(&Direction::Right);
-        self.needs_redraw = true;
-    }
-
-    pub fn remove(&mut self) {
-        // TODO: Modify offset for when trying to remove chars when screen is on offset
-        self.buffer
-            .remove(self.caret.position.row, self.caret.line_location);
-        self.move_caret(&Direction::Left);
-        self.needs_redraw = true;
-    }
-
-    pub fn delete(&mut self) {
-        self.buffer
-            .delete(self.caret.position.row, self.caret.line_location);
-        self.needs_redraw = true;
-    }
-
     pub fn get_position(&self) -> Position {
         self.caret.position.substract(&self.scroll_offset)
     }
 
+    /**
+     * Screen Rendering
+     */
     pub fn render(&mut self) {
         if !self.needs_redraw {
             return;
@@ -158,6 +132,7 @@ impl View {
     }
 
     fn adjust_screen_to_offset(&mut self) {
+        // Adjusting screen offset (overflow of text beyond the screen) based on caret movement
         // Horizontal offset
         if self.caret.position.col < self.scroll_offset.col {
             self.scroll_offset.col = self.caret.position.col;
@@ -195,5 +170,42 @@ impl View {
                 .saturating_add(1);
             self.needs_redraw = true;
         }
+    }
+
+    /**
+     * Command Operations
+     */
+    pub fn move_caret(&mut self, direction: &Direction) {
+        self.caret.move_caret(direction, &self.buffer);
+        self.adjust_screen_to_offset();
+    }
+
+    pub fn terminal_resize(&mut self, new_size: Size) {
+        self.terminal_size = new_size;
+        self.needs_redraw = true;
+    }
+
+    pub fn insert(&mut self, inserted_char: char) {
+        self.buffer.insert(
+            inserted_char,
+            self.caret.position.row,
+            self.caret.line_location,
+        );
+        self.move_caret(&Direction::Right);
+        self.needs_redraw = true;
+    }
+
+    pub fn remove(&mut self) {
+        // TODO: Modify offset for when trying to remove chars when screen is on offset
+        self.buffer
+            .remove(self.caret.position.row, self.caret.line_location);
+        self.move_caret(&Direction::Left);
+        self.needs_redraw = true;
+    }
+
+    pub fn delete(&mut self) {
+        self.buffer
+            .delete(self.caret.position.row, self.caret.line_location);
+        self.needs_redraw = true;
     }
 }

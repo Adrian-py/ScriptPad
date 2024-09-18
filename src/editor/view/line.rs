@@ -83,7 +83,9 @@ impl Line {
         self.line_content.append(other);
     }
 
-    // Operations
+    /**
+     * Command Operations
+     */
     pub fn insert(&mut self, inserted_char: char, line_insert_location: usize) {
         let new_grapheme = TextGrapheme::new(&format!("{inserted_char}"));
         self.line_content.insert(line_insert_location, new_grapheme);

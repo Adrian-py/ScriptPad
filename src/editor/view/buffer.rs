@@ -27,22 +27,33 @@ impl Buffer {
         self.lines.len() == 0
     }
 
+    pub fn merge_next_line(&mut self, current_row_index: usize) {
+        // Merging line of index 'current_row_index' with the next line
+        if current_row_index.saturating_add(1) >= self.lines.len() {
+            return;
+        }
+
+        let (current_row, next_row) = {
+            let (left, right) = self.lines.split_at_mut(current_row_index.saturating_add(1));
+            (&mut left[current_row_index], &mut right[0])
+        };
+
+        current_row.append(&mut next_row.line_content);
+        self.lines.remove(current_row_index.saturating_add(1));
+    }
+
+    /**
+     * Command Operations
+     */
     pub fn insert(&mut self, inserted_char: char, insert_row: usize, line_insert_location: usize) {
         self.lines[insert_row].insert(inserted_char, line_insert_location);
     }
 
     pub fn remove(&mut self, remove_row: usize, line_remove_location: usize) {
+        // Merge current line with previous line, if caret is currently in the beginning of a line
         if line_remove_location == 0 {
-            let (current_row, prev_row) = if remove_row > 0 {
-                let (left, right) = self.lines.split_at_mut(remove_row);
-                (&mut right[0], Some(&mut left[remove_row.saturating_sub(1)]))
-            } else {
-                (&mut self.lines[remove_row], None)
-            };
-
-            if let Some(row) = prev_row {
-                row.append(&mut current_row.line_content);
-                self.lines.remove(remove_row);
+            if remove_row > 0 {
+                self.merge_next_line(remove_row.saturating_sub(1));
             }
             return;
         }
@@ -51,17 +62,10 @@ impl Buffer {
     }
 
     pub fn delete(&mut self, remove_row: usize, line_delete_location: usize) {
+        // Merge previous line with current line, if caret is at the end of a line
         if line_delete_location == self.lines[remove_row].len() {
-            let (current_row, next_row) = if remove_row.saturating_add(1) < self.lines.len() {
-                let (left, right) = self.lines.split_at_mut(remove_row.saturating_add(1));
-                (&mut left[remove_row], Some(&mut right[0]))
-            } else {
-                (&mut self.lines[remove_row], None)
-            };
-
-            if let Some(row) = next_row {
-                current_row.append(&mut row.line_content);
-                self.lines.remove(remove_row.saturating_add(1));
+            if remove_row.saturating_add(1) < self.lines.len() {
+                self.merge_next_line(remove_row);
             }
             return;
         }
