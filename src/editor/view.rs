@@ -197,10 +197,18 @@ impl View {
     }
 
     pub fn remove(&mut self) {
+        self.needs_redraw = true;
+
+        // In case we need to merge the previous line with the current line, position the caret first then merge.
+        if self.caret.line_location == 0 && self.caret.position.row > 0 {
+            self.move_caret(&Direction::Left);
+            self.buffer
+                .merge_next_line(self.caret.position.row.saturating_sub(1));
+            return;
+        }
         self.buffer
             .remove(self.caret.position.row, self.caret.line_location);
         self.move_caret(&Direction::Left);
-        self.needs_redraw = true;
     }
 
     pub fn delete(&mut self) {
