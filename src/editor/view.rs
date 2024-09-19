@@ -134,21 +134,22 @@ impl View {
     fn adjust_screen_to_offset(&mut self) {
         // Adjusting screen offset (overflow of text beyond the screen) based on caret movement
         // Horizontal offset
-        if self.caret.position.col < self.scroll_offset.col {
-            self.scroll_offset.col = self.caret.position.col;
+        if self.caret.position.col < self.scroll_offset.col.saturating_add(4) {
+            self.scroll_offset.col = self.scroll_offset.col.saturating_sub(1);
             self.needs_redraw = true;
         } else if self.caret.position.col
             >= self
                 .scroll_offset
                 .col
                 .saturating_add(self.terminal_size.width)
+                .saturating_sub(1)
         {
             self.scroll_offset.col = self
                 .caret
                 .position
                 .col
                 .saturating_sub(self.terminal_size.width)
-                .saturating_add(1);
+                .saturating_add(2);
             self.needs_redraw = true;
         }
 
@@ -196,7 +197,6 @@ impl View {
     }
 
     pub fn remove(&mut self) {
-        // TODO: Modify offset for when trying to remove chars when screen is on offset
         self.buffer
             .remove(self.caret.position.row, self.caret.line_location);
         self.move_caret(&Direction::Left);
